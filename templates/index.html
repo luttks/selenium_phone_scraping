@@ -1,123 +1,118 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8" />
-  <meta
-    name="viewport"
-    content="width=device-width, initial-scale=1.0" />
-  <title>Phone Scraper</title>
-  <script src="https://cdn.tailwindcss.com"></script>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Phone Scraper</title>
+    <script src="https://cdn.tailwindcss.com"></script>
 </head>
-<body class="bg-gray-100 font-sans">
-  <div class="container mx-auto p-4">
-    <h1 class="text-2xl font-bold mb-4">Lọc điện thoại theo hãng</h1>
-
-    <div class="bg-white p-6 rounded-lg shadow-md">
-      <form id="filterForm" class="space-y-4">
-        <h2 class="text-lg font-semibold">Chọn hãng</h2>
-        <div class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
-          {% for brand in brands %}
-          <label class="flex items-center space-x-2 border rounded px-3 py-2 hover:bg-gray-50">
-            <input type="checkbox" name="brand" value="{{ brand }}" class="h-4 w-4 text-blue-600">
-            <span>{{ brand }}</span>
-          </label>
-          {% endfor %}
+<body class="bg-gray-100">
+    <div class="container mx-auto p-4 max-w-7xl">
+        <h1 class="text-3xl font-bold mb-6 text-center">Phone Scraper</h1>
+        <div class="bg-white p-6 rounded-lg shadow mb-6">
+            <h2 class="text-xl font-semibold mb-4">Filter Phones</h2>
+            <form id="scrapeForm" class="space-y-4">
+                <div>
+                    <h3 class="font-medium mb-2">Brand</h3>
+                    <div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2">
+                        {% for brand in brands %}
+                        <label class="flex items-center space-x-2">
+                            <input type="checkbox" name="brand" value="{{ brand }}" class="brand-checkbox">
+                            <span>{{ brand }}</span>
+                        </label>
+                        {% endfor %}
+                    </div>
+                </div>
+                <div>
+                    <h3 class="font-medium mb-2">Price Range</h3>
+                    <div class="grid grid-cols-2 sm:grid-cols-3 gap-2">
+                        {% for price in price_ranges %}
+                        <label class="flex items-center space-x-2">
+                            <input type="radio" name="price_range" value="{{ price['data-href'] }}" class="price-radio">
+                            <span>{{ price.name }}</span>
+                        </label>
+                        {% endfor %}
+                    </div>
+                </div>
+                <div>
+                    <h3 class="font-medium mb-2">RAM</h3>
+                    <div class="grid grid-cols-2 sm:grid-cols-3 gap-2">
+                        {% for ram in ram_options %}
+                        <label class="flex items-center space-x-2">
+                            <input type="checkbox" name="ram" value="{{ ram }}" class="ram-checkbox">
+                            <span>{{ ram }}</span>
+                        </label>
+                        {% endfor %}
+                    </div>
+                </div>
+                <div>
+                    <h3 class="font-medium mb-2">Storage</h3>
+                    <div class="grid grid-cols-2 sm:grid-cols-3 gap-2">
+                        {% for storage in storage_options %}
+                        <label class="flex items-center space-x-2">
+                            <input type="checkbox" name="storage" value="{{ storage }}" class="storage-checkbox">
+                            <span>{{ storage }}</span>
+                        </label>
+                        {% endfor %}
+                    </div>
+                </div>
+                <button type="submit" class="bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600">
+                    Scrape
+                </button>
+            </form>
         </div>
-
-        <button type="submit"
-          class="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700">
-          Lọc sản phẩm
-        </button>
-      </form>
-
-      <div id="result" class="mt-6 space-y-4">
-        <div id="status" class="text-sm"></div>
-        <div id="total" class="text-green-700 font-medium"></div>
-        <div id="brands" class="text-gray-600"></div>
-
-        <!-- Loading -->
-        <div id="loading" class="hidden">
-          <div class="animate-pulse grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-            <div class="h-48 bg-gray-200 rounded"></div>
-            <div class="h-48 bg-gray-200 rounded"></div>
-            <div class="h-48 bg-gray-200 rounded"></div>
-          </div>
+        <div id="productsGrid" class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+            <!-- Products will be rendered here -->
         </div>
-
-        <!-- Products grid -->
-        <div id="products" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6"></div>
-      </div>
     </div>
-  </div>
 
-  <script>
-    const statusDiv = document.getElementById('status');
-    const totalDiv = document.getElementById('total');
-    const brandsDiv = document.getElementById('brands');
-    const productsGrid = document.getElementById('products');
-    const loading = document.getElementById('loading');
+    <script>
+        const form = document.getElementById('scrapeForm');
+        const productsGrid = document.getElementById('productsGrid');
 
-    function renderProducts(products) {
-      productsGrid.innerHTML = products.map(p => `
-        <a href="${p.product_link}" target="_blank" rel="noopener"
-           class="block bg-white rounded-lg shadow hover:shadow-md transition">
-          <img src="${p.image_link}" alt="${p.name}" class="w-full h-48 object-contain p-3 border-b">
-          <div class="p-4 space-y-2">
-            <h3 class="font-semibold line-clamp-2">${p.name}</h3>
-            <p class="text-red-600 font-bold">${p.price || 'Đang cập nhật'}</p>
-            ${Array.isArray(p.details) && p.details.length
-              ? `<ul class="text-sm text-gray-600 list-disc pl-5 space-y-1">
-                  ${p.details.slice(0, 5).map(d => `<li>${d}</li>`).join('')}
-                 </ul>`
-              : `<p class="text-sm text-gray-500">Không có mô tả.</p>`}
-          </div>
-        </a>
-      `).join('');
-    }
+        form.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const formData = new FormData(form);
+            const brands = [...document.querySelectorAll('.brand-checkbox:checked')].map(cb => cb.value);
+            const price_range = document.querySelector('.price-radio:checked')?.value || '';
+            const ram = [...document.querySelectorAll('.ram-checkbox:checked')].map(cb => cb.value);
+            const storage = [...document.querySelectorAll('.storage-checkbox:checked')].map(cb => cb.value);
 
-    document.getElementById('filterForm').addEventListener('submit', async (e) => {
-      e.preventDefault();
-      const checkboxes = document.querySelectorAll('input[name="brand"]:checked');
-      const brands = Array.from(checkboxes).map(cb => cb.value);
-
-      statusDiv.textContent = '';
-      totalDiv.textContent = '';
-      brandsDiv.textContent = '';
-      productsGrid.innerHTML = '';
-      loading.classList.remove('hidden');
-
-      try {
-        const response = await fetch('/scrape', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ brand: brands })
+            try {
+                const response = await fetch('/scrape', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ brand: brands, price_range, ram, storage })
+                });
+                if (!response.ok) {
+                    throw new Error('Scrape failed: ' + response.statusText);
+                }
+                const data = await response.json();
+                renderProducts(data.products);
+            } catch (error) {
+                console.error('Error:', error);
+                productsGrid.innerHTML = `<p class="text-red-500">Error: ${error.message}</p>`;
+            }
         });
-        if (!response.ok) {
-          throw new Error(`HTTP error! Status: ${response.status}`);
-        }
-        const data = await response.json();
 
-        // Summary
-        if (data.total_products === 0) {
-          totalDiv.innerHTML = '<p class="text-red-600">Không tìm thấy sản phẩm nào.</p>';
-        } else {
-          totalDiv.innerHTML = `Tìm thấy <strong>${data.total_products}</strong> sản phẩm.`;
+        function renderProducts(products) {
+            console.log('Products:', products);
+            productsGrid.innerHTML = products.map(p => `
+                <a href="${p.product_link}" target="_blank" rel="noopener"
+                   class="block bg-white rounded-lg shadow hover:shadow-md transition">
+                    <img src="${p.image_link}" alt="${p.name}" class="w-full h-48 object-contain p-3 border-b">
+                    <div class="p-4 space-y-2">
+                        <h3 class="font-semibold line-clamp-2">${p.name}</h3>
+                        <p class="text-red-600 font-bold">${p.price || 'Đang cập nhật'}</p>
+                        ${Array.isArray(p.details) && p.details.length
+                            ? `<ul class="text-sm text-gray-600 list-disc pl-5 space-y-1">
+                                 ${p.details.slice(0, 5).map(d => `<li>${d}</li>`).join('')}
+                               </ul>`
+                            : `<p class="text-sm text-gray-500">Không có mô tả.</p>`}
+                    </div>
+                </a>
+            `).join('');
         }
-        brandsDiv.innerHTML = (data.selected_brands && Array.isArray(data.selected_brands) && data.selected_brands.length)
-          ? `Hãng đã chọn: <span class="font-medium">${data.selected_brands.join(', ')}</span>`
-          : 'Không có hãng nào được chọn.';
-
-        // Render product cards
-        renderProducts(data.products || []);
-        if (!data.products || data.products.length === 0) {
-          statusDiv.innerHTML = '<span class="text-amber-600">Không lấy được danh sách sản phẩm chi tiết, chỉ có tổng số.</span>';
-        }
-      } catch (error) {
-        statusDiv.innerHTML = '<p class="text-red-600">Lỗi: ' + error.message + '</p>';
-      } finally {
-        loading.classList.add('hidden');
-      }
-    });
-  </script>
+    </script>
 </body>
 </html>
