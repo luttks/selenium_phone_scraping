@@ -9,3 +9,6 @@ class FilterList:
 
     def get_brands(self):
         return self.brands
+
+    def get_price_ranges(self):
+        return self.price_ranges

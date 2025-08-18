@@ -59,9 +59,9 @@
 
     function renderProducts(products) {
       productsGrid.innerHTML = products.map(p => `
-        <a href="${p.link}" target="_blank" rel="noopener"
+        <a href="${p.product_link}" target="_blank" rel="noopener"
            class="block bg-white rounded-lg shadow hover:shadow-md transition">
-          <img src="${p.image}" alt="${p.name}" class="w-full h-48 object-contain p-3 border-b">
+          <img src="${p.image_link}" alt="${p.name}" class="w-full h-48 object-contain p-3 border-b">
           <div class="p-4 space-y-2">
             <h3 class="font-semibold line-clamp-2">${p.name}</h3>
             <p class="text-red-600 font-bold">${p.price || 'Đang cập nhật'}</p>

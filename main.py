@@ -18,21 +18,21 @@ logger = logging.getLogger(__name__)
 app = FastAPI(title="Phone Scraper API")
 templates = Jinja2Templates(directory="templates")
 
-# ==== NEW: Models ====
+# ==== Models ====
 class PhoneConfigInput(BaseModel):
     brand: Optional[List[str]] = None
 
 class ProductOut(BaseModel):
-    image: str
+    image_link: str
     name: str
     price: str
-    link: str
+    product_link: str
     details: List[str]
 
 class ScrapeResponse(BaseModel):
     total_products: int
     selected_brands: List[str]
-    products: List[ProductOut]  # NEW
+    products: List[ProductOut]
 
 @app.get("/", response_class=HTMLResponse)
 async def get_index(request: Request):
@@ -67,12 +67,11 @@ async def scrape_phones(config: PhoneConfigInput):
         # Map tgdd.results -> ProductOut
         products_out: List[ProductOut] = []
         for r in tgdd.results:
-            # Giả định model Result có thuộc tính: img, name, price, link, details
             products_out.append(ProductOut(
-                image=getattr(r, "img", ""),
+                image_link=getattr(r, "image_link", "N/A"),
                 name=getattr(r, "name", ""),
-                price=getattr(r, "price", ""),
-                link=getattr(r, "link", getattr(r, "product_link", "")),
+                price=getattr(r, "price", "Không có thông tin"),
+                product_link=getattr(r, "product_link", "N/A"),
                 details=getattr(r, "details", []) or []
             ))
 
@@ -89,8 +88,9 @@ async def scrape_phones(config: PhoneConfigInput):
         if driver:
             try:
                 driver.quit()
-            except Exception:
-                pass
+                logger.info("WebDriver closed successfully")
+            except Exception as e:
+                logger.warning(f"Failed to close WebDriver: {str(e)}")
 
 if __name__ == "__main__":
     uvicorn.run(app, host="0.0.0.0", port=8000)

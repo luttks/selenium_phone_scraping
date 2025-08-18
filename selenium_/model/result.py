@@ -1,8 +1,8 @@
 from typing import List
 
 class Result:
-    def __init__(self, image_link: str, name: str, price: str, product_link: str, details: List[str]):
-        self.image_link = image_link
+    def __init__(self, img_url: str, name: str, price: str, product_link: str, details: List[str]):
+        self.image_link = img_url
         self.name = name
         self.price = price
         self.product_link = product_link
