@@ -1,3 +1,122 @@
+<!--<!DOCTYPE html>-->
+<!--<html lang="en">-->
+<!--<head>-->
+<!--    <meta charset="UTF-8">-->
+<!--    <meta name="viewport" content="width=device-width, initial-scale=1.0">-->
+<!--    <title>Phone Scraper</title>-->
+<!--    <script src="https://cdn.tailwindcss.com"></script>-->
+<!--</head>-->
+<!--<body class="bg-gray-100">-->
+<!--    <div class="container mx-auto p-4 max-w-7xl">-->
+<!--        <h1 class="text-3xl font-bold mb-6 text-center">Phone Scraper</h1>-->
+<!--        <div class="bg-white p-6 rounded-lg shadow mb-6">-->
+<!--            <h2 class="text-xl font-semibold mb-4">Filter Phones</h2>-->
+<!--            <form id="scrapeForm" class="space-y-4">-->
+<!--                <div>-->
+<!--                    <h3 class="font-medium mb-2">Brand</h3>-->
+<!--                    <div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2">-->
+<!--                        {% for brand in brands %}-->
+<!--                        <label class="flex items-center space-x-2">-->
+<!--                            <input type="checkbox" name="brand" value="{{ brand }}" class="brand-checkbox">-->
+<!--                            <span>{{ brand }}</span>-->
+<!--                        </label>-->
+<!--                        {% endfor %}-->
+<!--                    </div>-->
+<!--                </div>-->
+<!--                <div>-->
+<!--                    <h3 class="font-medium mb-2">Price Range</h3>-->
+<!--                    <div class="grid grid-cols-2 sm:grid-cols-3 gap-2">-->
+<!--                        {% for price in price_ranges %}-->
+<!--                        <label class="flex items-center space-x-2">-->
+<!--                            <input type="radio" name="price_range" value="{{ price['data-href'] }}" class="price-radio">-->
+<!--                            <span>{{ price.name }}</span>-->
+<!--                        </label>-->
+<!--                        {% endfor %}-->
+<!--                    </div>-->
+<!--                </div>-->
+<!--                <div>-->
+<!--                    <h3 class="font-medium mb-2">RAM</h3>-->
+<!--                    <div class="grid grid-cols-2 sm:grid-cols-3 gap-2">-->
+<!--                        {% for ram in ram_options %}-->
+<!--                        <label class="flex items-center space-x-2">-->
+<!--                            <input type="checkbox" name="ram" value="{{ ram }}" class="ram-checkbox">-->
+<!--                            <span>{{ ram }}</span>-->
+<!--                        </label>-->
+<!--                        {% endfor %}-->
+<!--                    </div>-->
+<!--                </div>-->
+<!--                <div>-->
+<!--                    <h3 class="font-medium mb-2">Storage</h3>-->
+<!--                    <div class="grid grid-cols-2 sm:grid-cols-3 gap-2">-->
+<!--                        {% for storage in storage_options %}-->
+<!--                        <label class="flex items-center space-x-2">-->
+<!--                            <input type="checkbox" name="storage" value="{{ storage }}" class="storage-checkbox">-->
+<!--                            <span>{{ storage }}</span>-->
+<!--                        </label>-->
+<!--                        {% endfor %}-->
+<!--                    </div>-->
+<!--                </div>-->
+<!--                <button type="submit" class="bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600">-->
+<!--                    Scrape-->
+<!--                </button>-->
+<!--            </form>-->
+<!--        </div>-->
+<!--        <div id="productsGrid" class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">-->
+<!--            &lt;!&ndash; Products will be rendered here &ndash;&gt;-->
+<!--        </div>-->
+<!--    </div>-->
+
+<!--    <script>-->
+<!--        const form = document.getElementById('scrapeForm');-->
+<!--        const productsGrid = document.getElementById('productsGrid');-->
+
+<!--        form.addEventListener('submit', async (e) => {-->
+<!--            e.preventDefault();-->
+<!--            const formData = new FormData(form);-->
+<!--            const brands = [...document.querySelectorAll('.brand-checkbox:checked')].map(cb => cb.value);-->
+<!--            const price_range = document.querySelector('.price-radio:checked')?.value || '';-->
+<!--            const ram = [...document.querySelectorAll('.ram-checkbox:checked')].map(cb => cb.value);-->
+<!--            const storage = [...document.querySelectorAll('.storage-checkbox:checked')].map(cb => cb.value);-->
+
+<!--            try {-->
+<!--                const response = await fetch('/scrape', {-->
+<!--                    method: 'POST',-->
+<!--                    headers: { 'Content-Type': 'application/json' },-->
+<!--                    body: JSON.stringify({ brand: brands, price_range, ram, storage })-->
+<!--                });-->
+<!--                if (!response.ok) {-->
+<!--                    throw new Error('Scrape failed: ' + response.statusText);-->
+<!--                }-->
+<!--                const data = await response.json();-->
+<!--                renderProducts(data.products);-->
+<!--            } catch (error) {-->
+<!--                console.error('Error:', error);-->
+<!--                productsGrid.innerHTML = `<p class="text-red-500">Error: ${error.message}</p>`;-->
+<!--            }-->
+<!--        });-->
+
+<!--        function renderProducts(products) {-->
+<!--            console.log('Products:', products);-->
+<!--            productsGrid.innerHTML = products.map(p => `-->
+<!--                <a href="${p.product_link}" target="_blank" rel="noopener"-->
+<!--                   class="block bg-white rounded-lg shadow hover:shadow-md transition">-->
+<!--                    <img src="${p.image_link}" alt="${p.name}" class="w-full h-48 object-contain p-3 border-b">-->
+<!--                    <div class="p-4 space-y-2">-->
+<!--                        <h3 class="font-semibold line-clamp-2">${p.name}</h3>-->
+<!--                        <p class="text-red-600 font-bold">${p.price || 'Đang cập nhật'}</p>-->
+<!--                        ${Array.isArray(p.details) && p.details.length-->
+<!--                            ? `<ul class="text-sm text-gray-600 list-disc pl-5 space-y-1">-->
+<!--                                 ${p.details.slice(0, 5).map(d => `<li>${d}</li>`).join('')}-->
+<!--                               </ul>`-->
+<!--                            : `<p class="text-sm text-gray-500">Không có mô tả.</p>`}-->
+<!--                    </div>-->
+<!--                </a>-->
+<!--            `).join('');-->
+<!--        }-->
+<!--    </script>-->
+<!--</body>-->
+<!--</html>-->
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -36,24 +155,34 @@
                 </div>
                 <div>
                     <h3 class="font-medium mb-2">RAM</h3>
-                    <div class="grid grid-cols-2 sm:grid-cols-3 gap-2">
-                        {% for ram in ram_options %}
-                        <label class="flex items-center space-x-2">
-                            <input type="checkbox" name="ram" value="{{ ram }}" class="ram-checkbox">
-                            <span>{{ ram }}</span>
-                        </label>
-                        {% endfor %}
+                    <div class="flex space-x-2">
+                        <select name="ram_value" class="ram-value border rounded p-2">
+                            <option value="">Select RAM</option>
+                            {% for ram in ram_options %}
+                            <option value="{{ ram }}">{{ ram }}</option>
+                            {% endfor %}
+                        </select>
+                        <select name="ram_operator" class="ram-operator border rounded p-2">
+                            <option value="=">=</option>
+                            <option value=">=">>=</option>
+                            <option value="<="><=</option>
+                        </select>
                     </div>
                 </div>
                 <div>
                     <h3 class="font-medium mb-2">Storage</h3>
-                    <div class="grid grid-cols-2 sm:grid-cols-3 gap-2">
-                        {% for storage in storage_options %}
-                        <label class="flex items-center space-x-2">
-                            <input type="checkbox" name="storage" value="{{ storage }}" class="storage-checkbox">
-                            <span>{{ storage }}</span>
-                        </label>
-                        {% endfor %}
+                    <div class="flex space-x-2">
+                        <select name="storage_value" class="storage-value border rounded p-2">
+                            <option value="">Select Storage</option>
+                            {% for storage in storage_options %}
+                            <option value="{{ storage }}">{{ storage }}</option>
+                            {% endfor %}
+                        </select>
+                        <select name="storage_operator" class="storage-operator border rounded p-2">
+                            <option value="=">=</option>
+                            <option value=">=">>=</option>
+                            <option value="<="><=</option>
+                        </select>
                     </div>
                 </div>
                 <button type="submit" class="bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600">
@@ -75,14 +204,23 @@
             const formData = new FormData(form);
             const brands = [...document.querySelectorAll('.brand-checkbox:checked')].map(cb => cb.value);
             const price_range = document.querySelector('.price-radio:checked')?.value || '';
-            const ram = [...document.querySelectorAll('.ram-checkbox:checked')].map(cb => cb.value);
-            const storage = [...document.querySelectorAll('.storage-checkbox:checked')].map(cb => cb.value);
+            const ram_value = document.querySelector('.ram-value').value;
+            const ram_operator = document.querySelector('.ram-operator').value;
+            const storage_value = document.querySelector('.storage-value').value;
+            const storage_operator = document.querySelector('.storage-operator').value;
+
+            const payload = {
+                brand: brands,
+                price_range,
+                ram: ram_value ? [ram_value, ram_operator] : null,
+                storage: storage_value ? [storage_value, storage_operator] : null
+            };
 
             try {
                 const response = await fetch('/scrape', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ brand: brands, price_range, ram, storage })
+                    body: JSON.stringify(payload)
                 });
                 if (!response.ok) {
                     throw new Error('Scrape failed: ' + response.statusText);
