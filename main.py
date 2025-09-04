@@ -5,6 +5,7 @@ from fastapi.templating import Jinja2Templates
 from pydantic import BaseModel
 from typing import List, Optional
 from selenium_.page.tgdd import TGDD
+from selenium_.page.fptshop import FPTShop  # Add FPT Shop import
 from selenium_.model.phone_configuration import PhoneConfiguration
 from selenium_.model.filter_list import FilterList
 from selenium.webdriver.chrome.service import Service
@@ -123,6 +124,66 @@ async def scrape_phones(config: PhoneConfigInput):
         raise HTTPException(status_code=500, detail=str(e))
     finally:
         logger.info("Scrape completed, leaving WebDriver open for inspection")
+
+# Add new endpoint for FPT Shop scraping
+@app.post("/scrape-fpt", response_model=ScrapeResponse)
+async def scrape_fpt_phones(config: PhoneConfigInput):
+    logger.info(f"Received FPT Shop scrape request with config: {config}")
+    driver = None
+    try:
+        options = ChromeOptions()
+        options.add_argument("--no-sandbox")
+        options.add_argument("--disable-dev-shm-usage")
+        options.add_argument("--start-maximized")
+        driver = Chrome(service=Service(ChromeDriverManager().install()), options=options)
+
+        phone_config = PhoneConfiguration(
+            brand=config.brand,
+            price_range=config.price_range,
+            ram=config.ram,
+            storage=config.storage,
+            resolutions=config.resolutions,
+            refresh_rates=config.refresh_rates
+        )
+        fpt_shop = FPTShop(driver)  # New FPT Shop scraper
+        results = []
+        error = fpt_shop.run(phone_config, results)
+
+        if error:
+            logger.error(f"FPT Shop scraper error: {error}")
+            raise HTTPException(status_code=500, detail=error)
+
+        total_products = len(fpt_shop.results)  # FPT Shop doesn't set total_product
+        logger.info(f"Found {total_products} products from FPT Shop")
+
+        products_out: List[ProductOut] = []
+        for r in fpt_shop.results:
+            products_out.append(ProductOut(
+                image_link=getattr(r, "image_link", "N/A"),
+                name=getattr(r, "name", ""),
+                price=getattr(r, "price", "Không có thông tin"),
+                product_link=getattr(r, "product_link", "N/A"),
+                details=getattr(r, "details", []) or []
+            ))
+
+        return ScrapeResponse(
+            total_products=total_products,
+            selected_brands=config.brand or [],
+            selected_price_range=config.price_range,
+            selected_ram=config.ram or [],
+            selected_storage=config.storage or [],
+            selected_resolutions=config.resolutions or [],
+            selected_refresh_rates=config.refresh_rates or [],
+            products=products_out
+        )
+
+    except Exception as e:
+        logger.error(f"Unexpected error in FPT Shop scraping: {str(e)}")
+        raise HTTPException(status_code=500, detail=str(e))
+    finally:
+        if driver:
+            driver.quit()  # Close driver for FPT Shop scraper
+        logger.info("FPT Shop scrape completed")
 
 if __name__ == "__main__":
     uvicorn.run(app, host="0.0.0.0", port=8000)
