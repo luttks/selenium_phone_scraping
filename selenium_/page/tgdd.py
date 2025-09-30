@@ -18,7 +18,7 @@ class TGDD:
     )
     LIST_CONTAINER_LOCATOR = (By.CSS_SELECTOR, "ul.listproduct")
     SEE_MORE_LINK = (By.CSS_SELECTOR, "div.view-more > a")
-    PRICE_FILTER_LOCATOR = (By.XPATH, "(//div[contains(@class,'filter-list') and contains(@class,'price')])[1]/a")
+    PRICE_FILTER_LOCATOR = (By.CSS_SELECTOR, ".filter-list.price a")
     RAM_FILTER_LOCATOR = (By.CSS_SELECTOR, ".filter-list.filter-list--ram a")
     STORAGE_FILTER_LOCATOR = (By.CSS_SELECTOR, ".filter-list.filter-list--dung-luong-luu-tru a")
     RESOLUTION_FILTER_LOCATOR = (By.CSS_SELECTOR, ".filter-list.filter-list--do-phan-giai a")
@@ -41,17 +41,30 @@ class TGDD:
         try:
             self.connect(self.url)
             self.get_filter_elements()
+            
+            # Apply filters theo thứ tự tối ưu: brand → price → specs
             self.filter_brand(phone.get_brand())
+            time.sleep(1)  # Đợi brand filter apply
+            
             self.filter_price(phone.get_price_range())
+            time.sleep(1)  # Đợi price filter apply
+            
             self.filter_ram(phone.get_ram())
             self.filter_storage(phone.get_storage())
             self.filter_resolutions(phone.get_resolutions())
             self.filter_refresh_rates(phone.get_refresh_rates())
+            
+            # Đợi tất cả filters apply xong
+            time.sleep(2)
+            
             result_button, total_count = self.get_product_count()
             self.total_product = total_count
-            print("Total products found:", self.total_product)
+            print(f"[TGDD] Total products found after all filters: {self.total_product}")
+            
             if self.total_product == 0:
+                print("[TGDD] No products found with current filters - this is correct for impossible combinations")
                 return ""
+                
             self.click_view_products(result_button)
             self.load_all_product()
             all_results.extend(self.get_results(phone))
@@ -89,34 +102,99 @@ class TGDD:
             found = False
             for e in self.brand_list:
                 try:
-                    brand_name = (e.get_attribute("data-name") or "").lower()
-                    print(f"Kiểm tra hãng: {brand_name}, So sánh với: {s.lower()}")
-                    if s.lower() in brand_name:
+                    brand_name = (e.get_attribute("data-name") or "").strip()
+                    print(f"[TGDD] Kiểm tra hãng: '{brand_name}', So sánh với: '{s}'")
+                    
+                    # So sánh chính xác thay vì dùng 'in' để tránh match nhầm
+                    if self._brand_matches(s, brand_name):
                         self.wait.until(EC.element_to_be_clickable(e))
                         self.scroll_to_element(e)
                         self.js.execute_script("arguments[0].click();", e)
-                        print(f"Đã chọn hãng: {brand_name}")
+                        print(f"[TGDD] Đã chọn hãng: {brand_name}")
                         self.wait.until(EC.presence_of_element_located(self.LIST_CONTAINER_LOCATOR))
                         found = True
                         break
-                except:
+                except Exception as ex:
+                    print(f"[TGDD] Lỗi khi xử lý brand element: {ex}")
                     continue
             if not found:
-                print(f"Không tìm thấy hãng: {s}")
+                print(f"[TGDD] Không tìm thấy hãng: {s}")
+
+    def _brand_matches(self, target_brand: str, element_brand: str) -> bool:
+        """So sánh chính xác brand name để tránh match nhầm"""
+        target = target_brand.lower().strip()
+        element = element_brand.lower().strip()
+        
+        # Mapping đặc biệt
+        if target == "iphone (apple)" and "apple" in element:
+            return True
+        if target == "samsung" and element == "samsung":
+            return True
+        if target == "xiaomi" and element == "xiaomi":
+            return True
+        if target == "oppo" and element == "oppo":
+            return True
+        if target == "vivo" and element == "vivo":
+            return True
+        if target == "realme" and element == "realme":
+            return True
+        if target == "honor" and element == "honor":
+            return True
+        
+        # Fallback: exact match
+        return target == element
 
     def filter_price(self, price_href: Optional[str]):
         if not price_href:
             return
+        
+        print(f"[TGDD] Filtering price: {price_href}")
         try:
-            for e in self.driver.find_elements(*self.PRICE_FILTER_LOCATOR):
+            price_elements = self.driver.find_elements(*self.PRICE_FILTER_LOCATOR)
+            print(f"[TGDD] Found {len(price_elements)} price filter elements")
+            
+            # Debug: in ra tất cả price options
+            for elem in price_elements:
+                data_href = elem.get_attribute("data-href")
+                text = elem.text.strip()
+                print(f"[TGDD] Price option: '{text}' (data-href='{data_href}')")
+            
+            # Tìm và click price filter đúng
+            found = False
+            for e in price_elements:
                 if e.get_attribute("data-href") == price_href:
+                    price_text = e.text.strip()
+                    print(f"[TGDD] Clicking price filter: '{price_text}'")
+                    
                     self.wait.until(EC.element_to_be_clickable(e))
                     self.scroll_to_element(e)
+                    
+                    # Lưu URL trước khi click để so sánh
+                    url_before = self.driver.current_url
+                    print(f"[TGDD] URL before price filter: {url_before}")
+                    
                     self.js.execute_script("arguments[0].click();", e)
+                    
+                    # Đợi URL thay đổi hoặc page update
+                    time.sleep(3)
+                    url_after = self.driver.current_url
+                    print(f"[TGDD] URL after price filter: {url_after}")
+                    
+                    # Đợi list container update
                     self.wait.until(EC.presence_of_element_located(self.LIST_CONTAINER_LOCATOR))
+                    time.sleep(2)  # Đợi thêm để content update
+                    
+                    print(f"[TGDD] Successfully applied price filter: {price_text}")
+                    found = True
                     break
-        except:
-            pass
+            
+            if not found:
+                print(f"[TGDD] Price filter not found: {price_href}")
+                
+        except Exception as e:
+            print(f"[TGDD] Error filtering price: {e}")
+            import traceback
+            traceback.print_exc()
 
     def filter_ram(self, ram: Optional[Tuple[str, str]]):
         if not ram:

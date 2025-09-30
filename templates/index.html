@@ -1,163 +1,704 @@
 <!DOCTYPE html>
 <html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Phone Scraper</title>
     <script src="https://cdn.tailwindcss.com"></script>
-</head>
-<body class="bg-gray-100">
-    <div class="container mx-auto p-4 max-w-7xl">
-        <h1 class="text-3xl font-bold mb-6 text-center">Phone Scraper</h1>
-        <div class="bg-white p-6 rounded-lg shadow mb-6">
-            <h2 class="text-xl font-semibold mb-4">Filter Phones</h2>
-            <form id="scrapeForm" class="space-y-4">
+    <style>
+      /* Custom CSS for tab navigation */
+      .tab-pane {
+        display: none;
+      }
+      .tab-pane.show.active {
+        display: block;
+      }
+
+      /* Smooth transition for tabs */
+      .nav-link {
+        transition: all 0.3s ease;
+      }
+
+      /* Line clamp utility for text truncation */
+      .line-clamp-2 {
+        display: -webkit-box;
+        -webkit-line-clamp: 2;
+        -webkit-box-orient: vertical;
+        overflow: hidden;
+      }
+
+      /* Custom scrollbar for better UX */
+      .custom-scrollbar::-webkit-scrollbar {
+        width: 6px;
+      }
+      .custom-scrollbar::-webkit-scrollbar-track {
+        background: #f1f1f1;
+        border-radius: 3px;
+      }
+      .custom-scrollbar::-webkit-scrollbar-thumb {
+        background: #c1c1c1;
+        border-radius: 3px;
+      }
+      .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+        background: #a8a8a8;
+      }
+
+      /* Loading spinner animation */
+      @keyframes spin {
+        from {
+          transform: rotate(0deg);
+        }
+        to {
+          transform: rotate(360deg);
+        }
+      }
+      .animate-spin {
+        animation: spin 1s linear infinite;
+      }
+
+      /* Animated gradient text */
+      @keyframes gradientShift {
+        0% {
+          background-position: 0% 50%;
+        }
+        50% {
+          background-position: 100% 50%;
+        }
+        100% {
+          background-position: 0% 50%;
+        }
+      }
+      .animate-gradient {
+        background-size: 200% 200%;
+        animation: gradientShift 6s ease infinite;
+      }
+
+      /* Full height layout */
+      html,
+      body {
+        height: 100%;
+        overflow: hidden;
+      }
+    </style>
+  </head>
+  <body class="bg-slate-100 h-full overflow-hidden">
+    <div class="h-full flex">
+      <aside
+        class="w-[20%] bg-white shadow-xl border-r border-slate-200 flex-shrink-0"
+      >
+        <div class="h-full overflow-y-auto custom-scrollbar p-4">
+          <div class="flex items-center justify-between mb-6">
+            <h2 class="text-xl font-semibold text-slate-900">
+              Bộ lọc nâng cao
+            </h2>
+            <a
+              href="/"
+              title="Về trang Home"
+              class="inline-flex items-center justify-center w-9 h-9 rounded-lg bg-blue-50 text-blue-600 hover:bg-blue-100 border border-blue-100"
+            >
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="1.8"
+                class="w-5 h-5"
+              >
+                <path
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                  d="M3 10.5L12 3l9 7.5M5 9v10a1 1 0 001 1h4m4 0h4a1 1 0 001-1V9"
+                />
+              </svg>
+            </a>
+          </div>
+
+          <form id="scrapeForm" class="space-y-6 pb-24">
+            <div class="space-y-3">
+              <div class="flex items-center justify-between">
+                <h3
+                  class="text-sm font-semibold uppercase tracking-wide text-slate-600"
+                >
+                  Hãng sản xuất
+                </h3>
+              </div>
+              <div
+                class="grid grid-cols-2 gap-2 max-h-48 overflow-y-auto pr-1 custom-scrollbar"
+              >
+                {% for brand in brands %}
+                <label
+                  class="flex items-center gap-2 bg-slate-50 hover:bg-blue-50 rounded-lg px-3 py-2 text-sm text-slate-700 transition"
+                >
+                  <input
+                    type="checkbox"
+                    name="brand"
+                    value="{{ brand }}"
+                    class="brand-checkbox accent-blue-500"
+                  />
+                  <span class="truncate">{{ brand }}</span>
+                </label>
+                {% endfor %}
+              </div>
+            </div>
+
+            <div class="border-t border-slate-100 pt-6 space-y-3">
+              <h3
+                class="text-sm font-semibold uppercase tracking-wide text-slate-600"
+              >
+                Khoảng giá
+              </h3>
+              <div class="grid grid-cols-1 gap-2">
+                {% for price in price_ranges %}
+                <label
+                  class="flex items-center justify-between bg-slate-50 hover:bg-blue-50 rounded-lg px-3 py-2 text-sm text-slate-700 transition"
+                >
+                  <span>{{ price.name }}</span>
+                  <input
+                    type="radio"
+                    name="price_range"
+                    value="{{ price['data-href'] }}"
+                    class="price-radio accent-blue-500"
+                  />
+                </label>
+                {% endfor %}
+              </div>
+            </div>
+
+            <div class="border-t border-slate-100 pt-6 space-y-3">
+              <h3
+                class="text-sm font-semibold uppercase tracking-wide text-slate-600"
+              >
+                Hiệu năng
+              </h3>
+              <div class="space-y-4">
                 <div>
-                    <h3 class="font-medium mb-2">Brand</h3>
-                    <div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2">
-                        {% for brand in brands %}
-                        <label class="flex items-center space-x-2">
-                            <input type="checkbox" name="brand" value="{{ brand }}" class="brand-checkbox">
-                            <span>{{ brand }}</span>
-                        </label>
-                        {% endfor %}
-                    </div>
+                  <p class="text-xs font-medium text-slate-500 mb-2">RAM</p>
+                  <div class="flex gap-2">
+                    <select
+                      name="ram_value"
+                      class="ram-value flex-1 border border-slate-200 rounded-lg px-3 py-2 text-sm focus:border-blue-500 focus:ring-2 focus:ring-blue-200"
+                    >
+                      <option value="">Chọn dung lượng</option>
+                      {% for ram in ram_options %}
+                      <option value="{{ ram }}">{{ ram }}</option>
+                      {% endfor %}
+                    </select>
+                    <select
+                      name="ram_operator"
+                      class="ram-operator w-24 border border-slate-200 rounded-lg px-3 py-2 text-sm focus:border-blue-500 focus:ring-2 focus:ring-blue-200"
+                    >
+                      <option value="=">=</option>
+                      <option value=">=">&gt;=</option>
+                      <option value="<=">&lt;=</option>
+                    </select>
+                  </div>
                 </div>
                 <div>
-                    <h3 class="font-medium mb-2">Price Range</h3>
-                    <div class="grid grid-cols-2 sm:grid-cols-3 gap-2">
-                        {% for price in price_ranges %}
-                        <label class="flex items-center space-x-2">
-                            <input type="radio" name="price_range" value="{{ price['data-href'] }}" class="price-radio">
-                            <span>{{ price.name }}</span>
-                        </label>
-                        {% endfor %}
-                    </div>
+                  <p class="text-xs font-medium text-slate-500 mb-2">Bộ nhớ</p>
+                  <div class="flex gap-2">
+                    <select
+                      name="storage_value"
+                      class="storage-value flex-1 border border-slate-200 rounded-lg px-3 py-2 text-sm focus:border-blue-500 focus:ring-2 focus:ring-blue-200"
+                    >
+                      <option value="">Chọn dung lượng</option>
+                      {% for storage in storage_options %}
+                      <option value="{{ storage }}">{{ storage }}</option>
+                      {% endfor %}
+                    </select>
+                    <select
+                      name="storage_operator"
+                      class="storage-operator w-24 border border-slate-200 rounded-lg px-3 py-2 text-sm focus:border-blue-500 focus:ring-2 focus:ring-blue-200"
+                    >
+                      <option value="=">=</option>
+                      <option value=">=">&gt;=</option>
+                      <option value="<=">&lt;=</option>
+                    </select>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div class="border-t border-slate-100 pt-6 space-y-3">
+              <h3
+                class="text-sm font-semibold uppercase tracking-wide text-slate-600"
+              >
+                Hiển thị
+              </h3>
+              <div class="space-y-4">
+                <div>
+                  <p class="text-xs font-medium text-slate-500 mb-2">
+                    Độ phân giải
+                  </p>
+                  <div class="grid grid-cols-2 gap-2">
+                    {% for resolution in resolution_options %}
+                    <label
+                      class="flex items-center gap-2 bg-slate-50 hover:bg-blue-50 rounded-lg px-3 py-2 text-xs text-slate-700 transition"
+                    >
+                      <input
+                        type="checkbox"
+                        name="resolutions"
+                        value="{{ resolution }}"
+                        class="resolution-checkbox accent-blue-500"
+                      />
+                      <span class="truncate">{{ resolution }}</span>
+                    </label>
+                    {% endfor %}
+                  </div>
                 </div>
                 <div>
-                    <h3 class="font-medium mb-2">RAM</h3>
-                    <div class="flex space-x-2">
-                        <select name="ram_value" class="ram-value border rounded p-2">
-                            <option value="">Select RAM</option>
-                            {% for ram in ram_options %}
-                            <option value="{{ ram }}">{{ ram }}</option>
-                            {% endfor %}
-                        </select>
-                        <select name="ram_operator" class="ram-operator border rounded p-2">
-                            <option value="=">=</option>
-                            <option value=">=">>=</option>
-                            <option value="<="><=</option>
-                        </select>
-                    </div>
+                  <p class="text-xs font-medium text-slate-500 mb-2">
+                    Tần số quét
+                  </p>
+                  <div class="grid grid-cols-2 gap-2">
+                    {% for refresh_rate in refresh_rate_options %}
+                    <label
+                      class="flex items-center gap-2 bg-slate-50 hover:bg-blue-50 rounded-lg px-3 py-2 text-xs text-slate-700 transition"
+                    >
+                      <input
+                        type="checkbox"
+                        name="refresh_rates"
+                        value="{{ refresh_rate }}"
+                        class="refresh-rate-checkbox accent-blue-500"
+                      />
+                      <span class="truncate">{{ refresh_rate }}</span>
+                    </label>
+                    {% endfor %}
+                  </div>
                 </div>
-                <div>
-                    <h3 class="font-medium mb-2">Storage</h3>
-                    <div class="flex space-x-2">
-                        <select name="storage_value" class="storage-value border rounded p-2">
-                            <option value="">Select Storage</option>
-                            {% for storage in storage_options %}
-                            <option value="{{ storage }}">{{ storage }}</option>
-                            {% endfor %}
-                        </select>
-                        <select name="storage_operator" class="storage-operator border rounded p-2">
-                            <option value="=">=</option>
-                            <option value=">=">>=</option>
-                            <option value="<="><=</option>
-                        </select>
-                    </div>
-                </div>
-                <div>
-                    <h3 class="font-medium mb-2">Resolution</h3>
-                    <div class="grid grid-cols-2 sm:grid-cols-3 gap-2">
-                        {% for resolution in resolution_options %}
-                        <label class="flex items-center space-x-2">
-                            <input type="checkbox" name="resolutions" value="{{ resolution }}" class="resolution-checkbox">
-                            <span>{{ resolution }}</span>
-                        </label>
-                        {% endfor %}
-                    </div>
-                </div>
-                <div>
-                    <h3 class="font-medium mb-2">Refresh Rate</h3>
-                    <div class="grid grid-cols-2 sm:grid-cols-3 gap-2">
-                        {% for refresh_rate in refresh_rate_options %}
-                        <label class="flex items-center space-x-2">
-                            <input type="checkbox" name="refresh_rates" value="{{ refresh_rate }}" class="refresh-rate-checkbox">
-                            <span>{{ refresh_rate }}</span>
-                        </label>
-                        {% endfor %}
-                    </div>
-                </div>
-                <button type="submit" class="bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600">
-                    Scrape
-                </button>
-            </form>
+              </div>
+            </div>
+          </form>
+          <div
+            class="sticky bottom-0 left-0 right-0 bg-white/80 backdrop-blur border-t border-slate-200 p-3"
+          >
+            <button
+              type="submit"
+              form="scrapeForm"
+              class="w-full relative overflow-hidden bg-gradient-to-r from-blue-600 via-indigo-600 to-purple-600 text-white font-semibold py-3 rounded-xl shadow-lg shadow-blue-200 transition transform hover:-translate-y-0.5 focus:ring-2 focus:ring-indigo-200"
+            >
+              <span class="relative z-10">Tìm kiếm ngay</span>
+              <span
+                class="absolute inset-0 bg-white/20 opacity-0 hover:opacity-100 transition-opacity"
+              ></span>
+            </button>
+          </div>
         </div>
-        <div id="productsGrid" class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
-            <!-- Products will be rendered here -->
+      </aside>
+
+      <main class="flex-1 bg-white overflow-hidden">
+        <div class="h-full flex flex-col">
+          <div class="flex-1 overflow-y-auto custom-scrollbar p-4">
+            <!-- Tab Navigation for Results -->
+            <div
+              id="resultsContainer"
+              class="rounded-xl border border-dashed border-slate-200 bg-slate-50/60"
+              style="display: none"
+            >
+              <div
+                class="bg-white rounded-t-xl border-b border-slate-100 px-4 sm:px-6"
+              >
+                <nav class="nav nav-pills" id="pills-tab" role="tablist">
+                  <ul class="flex flex-wrap gap-2 py-4">
+                    <li class="nav-item">
+                      <a
+                        class="nav-link active px-4 py-2 rounded-full text-sm font-medium transition-colors duration-200 bg-blue-500 text-white"
+                        id="pills-tgdd-tab"
+                        data-toggle="pill"
+                        href="#pills-tgdd"
+                        role="tab"
+                        aria-controls="pills-tgdd"
+                        aria-selected="true"
+                      >
+                        Thế Giới Di Động
+                      </a>
+                    </li>
+                    <li class="nav-item">
+                      <a
+                        class="nav-link px-4 py-2 rounded-full text-sm font-medium transition-colors duration-200 text-slate-600 hover:text-blue-600"
+                        id="pills-fpt-tab"
+                        data-toggle="pill"
+                        href="#pills-fpt"
+                        role="tab"
+                        aria-controls="pills-fpt"
+                        aria-selected="false"
+                      >
+                        FPT Shop
+                      </a>
+                    </li>
+                    <li class="nav-item">
+                      <a
+                        class="nav-link px-4 py-2 rounded-full text-sm font-medium transition-colors duration-200 text-slate-600 hover:text-blue-600"
+                        id="pills-all-tab"
+                        data-toggle="pill"
+                        href="#pills-all"
+                        role="tab"
+                        aria-controls="pills-all"
+                        aria-selected="false"
+                      >
+                        Tất cả sản phẩm
+                      </a>
+                    </li>
+                  </ul>
+                </nav>
+              </div>
+
+              <div class="tab-content px-4 sm:px-6 py-6" id="pills-tabContent">
+                <!-- TGDD Tab -->
+                <div
+                  class="tab-pane fade show active"
+                  id="pills-tgdd"
+                  role="tabpanel"
+                  aria-labelledby="pills-tgdd-tab"
+                >
+                  <div class="mb-6">
+                    <h3 class="text-lg font-semibold text-slate-900">
+                      Sản phẩm từ Thế Giới Di Động
+                    </h3>
+                    <p class="text-sm text-slate-500" id="tgdd-count">
+                      Đang tải...
+                    </p>
+                  </div>
+                  <div
+                    id="tgddGrid"
+                    class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4"
+                  >
+                    <!-- TGDD products will be rendered here -->
+                  </div>
+                </div>
+
+                <!-- FPT Tab -->
+                <div
+                  class="tab-pane fade"
+                  id="pills-fpt"
+                  role="tabpanel"
+                  aria-labelledby="pills-fpt-tab"
+                >
+                  <div class="mb-6">
+                    <h3 class="text-lg font-semibold text-slate-900">
+                      Sản phẩm từ FPT Shop
+                    </h3>
+                    <p class="text-sm text-slate-500" id="fpt-count">
+                      Đang tải...
+                    </p>
+                  </div>
+                  <div
+                    id="fptGrid"
+                    class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4"
+                  >
+                    <!-- FPT products will be rendered here -->
+                  </div>
+                </div>
+
+                <!-- All Products Tab -->
+                <div
+                  class="tab-pane fade"
+                  id="pills-all"
+                  role="tabpanel"
+                  aria-labelledby="pills-all-tab"
+                >
+                  <div class="mb-6">
+                    <h3 class="text-lg font-semibold text-slate-900">
+                      Tất cả sản phẩm
+                    </h3>
+                    <p class="text-sm text-slate-500" id="all-count">
+                      Đang tải...
+                    </p>
+                  </div>
+                  <div
+                    id="allGrid"
+                    class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4"
+                  >
+                    <!-- All products will be rendered here -->
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div
+              id="emptyState"
+              class="w-full min-h-[60vh] flex items-center justify-center py-16 text-center"
+            >
+              <p
+                class="text-xl sm:text-2xl font-normal text-gray-500 max-w-3xl px-6 leading-relaxed"
+              >
+                Chọn cấu hình ở thanh
+                <span class="text-gray-500 font-semibold">Bộ lọc nâng cao</span>
+                để tìm kiếm điện thoại từ các nguồn khác nhau
+              </p>
+            </div>
+          </div>
         </div>
+      </main>
     </div>
 
     <script>
-        const form = document.getElementById('scrapeForm');
-        const productsGrid = document.getElementById('productsGrid');
+      const form = document.getElementById("scrapeForm");
+      const resultsContainer = document.getElementById("resultsContainer");
+      const emptyState = document.getElementById("emptyState");
+      const currentPath = window.location.pathname;
 
-        form.addEventListener('submit', async (e) => {
-            e.preventDefault();
-            const formData = new FormData(form);
-            const brands = [...document.querySelectorAll('.brand-checkbox:checked')].map(cb => cb.value);
-            const price_range = document.querySelector('.price-radio:checked')?.value || '';
-            const ram_value = document.querySelector('.ram-value').value;
-            const ram_operator = document.querySelector('.ram-operator').value;
-            const storage_value = document.querySelector('.storage-value').value;
-            const storage_operator = document.querySelector('.storage-operator').value;
-            const resolutions = [...document.querySelectorAll('.resolution-checkbox:checked')].map(cb => cb.value);
-            const refresh_rates = [...document.querySelectorAll('.refresh-rate-checkbox:checked')].map(cb => cb.value);
+      // Tab functionality
+      const tabLinks = document.querySelectorAll('[data-toggle="pill"]');
+      const tabPanes = document.querySelectorAll(".tab-pane");
 
-            const payload = {
-                brand: brands,
-                price_range,
-                ram: ram_value ? [ram_value, ram_operator] : null,
-                storage: storage_value ? [storage_value, storage_operator] : null,
-                resolutions,
-                refresh_rates
-            };
+      tabLinks.forEach((link) => {
+        link.addEventListener("click", (e) => {
+          e.preventDefault();
 
-            try {
-                const response = await fetch('/scrape', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify(payload)
-                });
-                if (!response.ok) {
-                    throw new Error('Scrape failed: ' + response.statusText);
-                }
-                const data = await response.json();
-                renderProducts(data.products);
-            } catch (error) {
-                console.error('Error:', error);
-                productsGrid.innerHTML = `<p class="text-red-500">Error: ${error.message}</p>`;
-            }
+          // Remove active class from all tabs and panes
+          tabLinks.forEach((l) => {
+            l.classList.remove("active", "bg-blue-500", "text-white");
+            l.classList.add(
+              "text-slate-600",
+              "hover:text-blue-600",
+              "bg-transparent"
+            );
+            l.classList.remove("text-white");
+          });
+          tabPanes.forEach((p) => {
+            p.classList.remove("show", "active");
+          });
+
+          // Add active class to clicked tab
+          link.classList.add("active", "bg-blue-500", "text-white");
+          link.classList.remove("text-slate-600", "bg-transparent");
+
+          // Show corresponding pane
+          const targetPane = document.querySelector(link.getAttribute("href"));
+          targetPane.classList.add("show", "active");
         });
+      });
 
-        function renderProducts(products) {
-            console.log('Products:', products);
-            productsGrid.innerHTML = products.map(p => `
+      form.addEventListener("submit", async (e) => {
+        e.preventDefault();
+
+        // Show loading state
+        resultsContainer.style.display = "block";
+        emptyState?.classList.add("hidden");
+        const spinner =
+          '<span class="flex items-center gap-2"><svg class="animate-spin h-4 w-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="m4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>Đang tải...</span>';
+        document.getElementById("tgdd-count").innerHTML = spinner;
+        document.getElementById("fpt-count").innerHTML = spinner;
+        document.getElementById("all-count").innerHTML = spinner;
+
+        // Show loading skeletons
+        const loadingSkeleton = generateLoadingSkeleton();
+        document.getElementById("tgddGrid").innerHTML = loadingSkeleton;
+        document.getElementById("fptGrid").innerHTML = loadingSkeleton;
+        document.getElementById("allGrid").innerHTML = loadingSkeleton;
+
+        const brands = [
+          ...document.querySelectorAll(".brand-checkbox:checked"),
+        ].map((cb) => cb.value);
+        const price_range =
+          document.querySelector(".price-radio:checked")?.value || "";
+        const ram_value = document.querySelector(".ram-value").value;
+        const ram_operator = document.querySelector(".ram-operator").value;
+        const storage_value = document.querySelector(".storage-value").value;
+        const storage_operator =
+          document.querySelector(".storage-operator").value;
+        const resolutions = [
+          ...document.querySelectorAll(".resolution-checkbox:checked"),
+        ].map((cb) => cb.value);
+        const refresh_rates = [
+          ...document.querySelectorAll(".refresh-rate-checkbox:checked"),
+        ].map((cb) => cb.value);
+
+        const payload = {
+          brand: brands,
+          price_range,
+          ram: ram_value ? [ram_value, ram_operator] : null,
+          storage: storage_value ? [storage_value, storage_operator] : null,
+          resolutions,
+          refresh_rates,
+        };
+
+        try {
+          const response = await fetch("/scrape", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(payload),
+          });
+          if (!response.ok) {
+            throw new Error("Scrape failed: " + response.statusText);
+          }
+          const data = await response.json();
+          // If result_id returned, update URL without reload for shareable link
+          if (data.result_id) {
+            history.replaceState(null, "", `/${data.result_id}`);
+          }
+          renderProductsBySource(data);
+        } catch (error) {
+          console.error("Error:", error);
+          document.getElementById(
+            "tgddGrid"
+          ).innerHTML = `<p class="text-red-500 col-span-full">Error: ${error.message}</p>`;
+          document.getElementById(
+            "fptGrid"
+          ).innerHTML = `<p class="text-red-500 col-span-full">Error: ${error.message}</p>`;
+          document.getElementById(
+            "allGrid"
+          ).innerHTML = `<p class="text-red-500 col-span-full">Error: ${error.message}</p>`;
+          emptyState?.classList.add("hidden");
+        }
+      });
+
+      // If path matches an id, fetch cached result and render
+      (async function bootstrapFromPath() {
+        const idMatch = currentPath.match(/^\/(?!home\/)([\w-]+)$/);
+        if (!idMatch) return;
+        try {
+          // Show skeletons while fetching
+          resultsContainer.style.display = "block";
+          emptyState?.classList.add("hidden");
+          const loadingSkeleton = generateLoadingSkeleton();
+          document.getElementById("tgddGrid").innerHTML = loadingSkeleton;
+          document.getElementById("fptGrid").innerHTML = loadingSkeleton;
+          document.getElementById("allGrid").innerHTML = loadingSkeleton;
+
+          const res = await fetch(`/api/${idMatch[1]}`);
+          if (!res.ok)
+            throw new Error("Không tìm thấy dữ liệu hoặc đã hết hạn");
+          const data = await res.json();
+          renderProductsBySource(data);
+        } catch (err) {
+          console.error(err);
+          resultsContainer.style.display = "none";
+          emptyState?.classList.remove("hidden");
+        }
+      })();
+
+      function renderProductsBySource(data) {
+        console.log("Data received:", data);
+
+        // Phân loại sản phẩm theo nguồn dựa trên domain của product_link
+        const tgddProducts = data.products.filter(
+          (p) => p.product_link && p.product_link.includes("thegioididong.com")
+        );
+        const fptProducts = data.products.filter(
+          (p) => p.product_link && p.product_link.includes("fptshop.com")
+        );
+
+        if (!data.products || data.products.length === 0) {
+          resultsContainer.style.display = "none";
+          emptyState?.classList.remove("hidden");
+          return;
+        }
+
+        emptyState?.classList.add("hidden");
+        resultsContainer.style.display = "block";
+
+        // Cập nhật số lượng
+        document.getElementById(
+          "tgdd-count"
+        ).textContent = `${tgddProducts.length} sản phẩm`;
+        document.getElementById(
+          "fpt-count"
+        ).textContent = `${fptProducts.length} sản phẩm`;
+        document.getElementById(
+          "all-count"
+        ).textContent = `${data.products.length} sản phẩm`;
+
+        // Render sản phẩm cho từng tab
+        document.getElementById("tgddGrid").innerHTML = renderProductGrid(
+          tgddProducts,
+          "TGDD"
+        );
+        document.getElementById("fptGrid").innerHTML = renderProductGrid(
+          fptProducts,
+          "FPT"
+        );
+        document.getElementById("allGrid").innerHTML = renderProductGrid(
+          data.products,
+          "All"
+        );
+      }
+
+      function generateLoadingSkeleton() {
+        return Array(8)
+          .fill(0)
+          .map(
+            () => `
+                <div class="bg-white rounded-lg shadow border animate-pulse">
+                    <div class="h-48 bg-gray-200 rounded-t-lg"></div>
+                    <div class="p-4 space-y-2 border-t">
+                        <div class="h-4 bg-gray-200 rounded w-3/4"></div>
+                        <div class="h-4 bg-gray-200 rounded w-1/2"></div>
+                        <div class="h-6 bg-gray-200 rounded w-1/3"></div>
+                        <div class="space-y-1">
+                            <div class="h-3 bg-gray-200 rounded w-full"></div>
+                            <div class="h-3 bg-gray-200 rounded w-5/6"></div>
+                            <div class="h-3 bg-gray-200 rounded w-4/5"></div>
+                        </div>
+                    </div>
+                </div>
+            `
+          )
+          .join("");
+      }
+
+      function renderProductGrid(products, source) {
+        if (products.length === 0) {
+          return `<p class="text-gray-500 col-span-full text-center py-8">Không tìm thấy sản phẩm nào từ ${
+            source === "TGDD"
+              ? "Thế Giới Di Động"
+              : source === "FPT"
+              ? "FPT Shop"
+              : "cả hai trang"
+          }.</p>`;
+        }
+
+        return products
+          .map(
+            (p) => `
                 <a href="${p.product_link}" target="_blank" rel="noopener"
-                   class="block bg-white rounded-lg shadow hover:shadow-md transition">
-                    <img src="${p.image_link}" alt="${p.name}" class="w-full h-48 object-contain p-3 border-b">
-                    <div class="p-4 space-y-2">
-                        <h3 class="font-semibold line-clamp-2">${p.name}</h3>
-                        <p class="text-red-600 font-bold">${p.price || 'Đang cập nhật'}</p>
-                        ${Array.isArray(p.details) && p.details.length
-                            ? `<ul class="text-sm text-gray-600 list-disc pl-5 space-y-1">
-                                 ${p.details.slice(0, 5).map(d => `<li>${d}</li>`).join('')}
+                   class="block bg-white rounded-lg shadow hover:shadow-md transition border">
+                    <div class="relative">
+                        <img src="${p.image_link}" alt="${
+              p.name
+            }" class="w-full h-48 object-contain p-3">
+                        <div class="absolute top-2 right-2">
+                            <span class="px-2 py-1 text-xs font-medium rounded-full ${
+                              p.product_link &&
+                              p.product_link.includes("thegioididong.com")
+                                ? "bg-green-100 text-green-800"
+                                : "bg-blue-100 text-blue-800"
+                            }">
+                                ${
+                                  p.product_link &&
+                                  p.product_link.includes("thegioididong.com")
+                                    ? "TGDD"
+                                    : "FPT"
+                                }
+                            </span>
+                        </div>
+                    </div>
+                    <div class="p-4 space-y-2 border-t">
+                        <h3 class="font-semibold text-sm line-clamp-2 leading-tight">${
+                          p.name
+                        }</h3>
+                        <p class="text-red-600 font-bold text-lg">${
+                          p.price || "Đang cập nhật"
+                        }</p>
+                        ${
+                          Array.isArray(p.details) && p.details.length
+                            ? `<ul class="text-xs text-gray-600 space-y-1">
+                                 ${p.details
+                                   .slice(0, 3)
+                                   .map(
+                                     (d) =>
+                                       `<li class="flex items-center"><span class="w-1 h-1 bg-gray-400 rounded-full mr-2 flex-shrink-0"></span>${d}</li>`
+                                   )
+                                   .join("")}
                                </ul>`
-                            : `<p class="text-sm text-gray-500">Không có mô tả.</p>`}
+                            : `<p class="text-xs text-gray-500">Không có mô tả.</p>`
+                        }
                     </div>
                 </a>
-            `).join('');
-        }
+            `
+          )
+          .join("");
+      }
     </script>
-</body>
+  </body>
 </html>

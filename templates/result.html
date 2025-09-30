@@ -1,0 +1,277 @@
+<!DOCTYPE html>
+<html lang="vi">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Kết quả tìm kiếm điện thoại</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+      .line-clamp-2 {
+        display: -webkit-box;
+        -webkit-line-clamp: 2;
+        -webkit-box-orient: vertical;
+        overflow: hidden;
+      }
+
+      .tab-pane {
+        display: none;
+      }
+      .tab-pane.show.active {
+        display: block;
+      }
+    </style>
+  </head>
+  <body class="bg-slate-100 min-h-screen">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+      <!-- Header -->
+      <div
+        class="bg-white rounded-2xl shadow-xl border border-slate-100 p-6 mb-6"
+      >
+        <div class="flex items-center justify-between">
+          <div>
+            <h1 class="text-3xl font-bold text-slate-900">
+              Kết quả tìm kiếm điện thoại
+            </h1>
+            <p class="text-slate-600 mt-2">
+              Tổng cộng {{ total_products }} sản phẩm • {{ timestamp }}
+            </p>
+            <p class="text-xs text-slate-400 mt-1">ID: {{ result_id }}</p>
+          </div>
+          <a
+            href="/"
+            class="bg-blue-500 hover:bg-blue-600 text-white px-6 py-3 rounded-xl font-medium transition"
+          >
+            ← Tìm kiếm mới
+          </a>
+        </div>
+      </div>
+
+      <!-- Results -->
+      <div class="bg-white rounded-2xl shadow-xl border border-slate-100">
+        <!-- Tab Navigation -->
+        <div class="border-b border-slate-100 px-6">
+          <nav class="nav nav-pills" role="tablist">
+            <ul class="flex flex-wrap gap-2 py-4">
+              <li class="nav-item">
+                <a
+                  class="nav-link active px-4 py-2 rounded-full text-sm font-medium transition-colors duration-200 bg-blue-500 text-white"
+                  id="pills-tgdd-tab"
+                  data-toggle="pill"
+                  href="#pills-tgdd"
+                  role="tab"
+                >
+                  Thế Giới Di Động ({{ tgdd_products|length }})
+                </a>
+              </li>
+              <li class="nav-item">
+                <a
+                  class="nav-link px-4 py-2 rounded-full text-sm font-medium transition-colors duration-200 text-slate-600 hover:text-blue-600"
+                  id="pills-fpt-tab"
+                  data-toggle="pill"
+                  href="#pills-fpt"
+                  role="tab"
+                >
+                  FPT Shop ({{ fpt_products|length }})
+                </a>
+              </li>
+              <li class="nav-item">
+                <a
+                  class="nav-link px-4 py-2 rounded-full text-sm font-medium transition-colors duration-200 text-slate-600 hover:text-blue-600"
+                  id="pills-all-tab"
+                  data-toggle="pill"
+                  href="#pills-all"
+                  role="tab"
+                >
+                  Tất cả ({{ total_products }})
+                </a>
+              </li>
+            </ul>
+          </nav>
+        </div>
+
+        <!-- Tab Content -->
+        <div class="tab-content p-6">
+          <!-- TGDD Tab -->
+          <div class="tab-pane fade show active" id="pills-tgdd">
+            <div
+              class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4"
+            >
+              {% for product in tgdd_products %}
+              <a
+                href="{{ product.product_link }}"
+                target="_blank"
+                class="block bg-white rounded-lg shadow hover:shadow-md transition border"
+              >
+                <div class="relative">
+                  <img
+                    src="{{ product.image_link }}"
+                    alt="{{ product.name }}"
+                    class="w-full h-48 object-contain p-3"
+                  />
+                  <div class="absolute top-2 right-2">
+                    <span
+                      class="px-2 py-1 text-xs font-medium rounded-full bg-green-100 text-green-800"
+                    >
+                      TGDD
+                    </span>
+                  </div>
+                </div>
+                <div class="p-4 space-y-2 border-t">
+                  <h3 class="font-semibold text-sm line-clamp-2">
+                    {{ product.name }}
+                  </h3>
+                  <p class="text-red-600 font-bold text-lg">
+                    {{ product.price }}
+                  </p>
+                  {% if product.details %}
+                  <ul class="text-xs text-gray-600 space-y-1">
+                    {% for detail in product.details[:3] %}
+                    <li class="flex items-center">
+                      <span
+                        class="w-1 h-1 bg-gray-400 rounded-full mr-2 flex-shrink-0"
+                      ></span>
+                      {{ detail }}
+                    </li>
+                    {% endfor %}
+                  </ul>
+                  {% endif %}
+                </div>
+              </a>
+              {% endfor %}
+            </div>
+          </div>
+
+          <!-- FPT Tab -->
+          <div class="tab-pane fade" id="pills-fpt">
+            <div
+              class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4"
+            >
+              {% for product in fpt_products %}
+              <a
+                href="{{ product.product_link }}"
+                target="_blank"
+                class="block bg-white rounded-lg shadow hover:shadow-md transition border"
+              >
+                <div class="relative">
+                  <img
+                    src="{{ product.image_link }}"
+                    alt="{{ product.name }}"
+                    class="w-full h-48 object-contain p-3"
+                  />
+                  <div class="absolute top-2 right-2">
+                    <span
+                      class="px-2 py-1 text-xs font-medium rounded-full bg-blue-100 text-blue-800"
+                    >
+                      FPT
+                    </span>
+                  </div>
+                </div>
+                <div class="p-4 space-y-2 border-t">
+                  <h3 class="font-semibold text-sm line-clamp-2">
+                    {{ product.name }}
+                  </h3>
+                  <p class="text-red-600 font-bold text-lg">
+                    {{ product.price }}
+                  </p>
+                  {% if product.details %}
+                  <ul class="text-xs text-gray-600 space-y-1">
+                    {% for detail in product.details[:3] %}
+                    <li class="flex items-center">
+                      <span
+                        class="w-1 h-1 bg-gray-400 rounded-full mr-2 flex-shrink-0"
+                      ></span>
+                      {{ detail }}
+                    </li>
+                    {% endfor %}
+                  </ul>
+                  {% endif %}
+                </div>
+              </a>
+              {% endfor %}
+            </div>
+          </div>
+
+          <!-- All Products Tab -->
+          <div class="tab-pane fade" id="pills-all">
+            <div
+              class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4"
+            >
+              {% for product in all_products %}
+              <a
+                href="{{ product.product_link }}"
+                target="_blank"
+                class="block bg-white rounded-lg shadow hover:shadow-md transition border"
+              >
+                <div class="relative">
+                  <img
+                    src="{{ product.image_link }}"
+                    alt="{{ product.name }}"
+                    class="w-full h-48 object-contain p-3"
+                  />
+                  <div class="absolute top-2 right-2">
+                    <span
+                      class="px-2 py-1 text-xs font-medium rounded-full {% if 'thegioididong.com' in product.product_link %}bg-green-100 text-green-800{% else %}bg-blue-100 text-blue-800{% endif %}"
+                    >
+                      {% if 'thegioididong.com' in product.product_link %}TGDD{%
+                      else %}FPT{% endif %}
+                    </span>
+                  </div>
+                </div>
+                <div class="p-4 space-y-2 border-t">
+                  <h3 class="font-semibold text-sm line-clamp-2">
+                    {{ product.name }}
+                  </h3>
+                  <p class="text-red-600 font-bold text-lg">
+                    {{ product.price }}
+                  </p>
+                  {% if product.details %}
+                  <ul class="text-xs text-gray-600 space-y-1">
+                    {% for detail in product.details[:3] %}
+                    <li class="flex items-center">
+                      <span
+                        class="w-1 h-1 bg-gray-400 rounded-full mr-2 flex-shrink-0"
+                      ></span>
+                      {{ detail }}
+                    </li>
+                    {% endfor %}
+                  </ul>
+                  {% endif %}
+                </div>
+              </a>
+              {% endfor %}
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <script>
+      // Tab functionality
+      const tabLinks = document.querySelectorAll('[data-toggle="pill"]');
+      const tabPanes = document.querySelectorAll(".tab-pane");
+
+      tabLinks.forEach((link) => {
+        link.addEventListener("click", (e) => {
+          e.preventDefault();
+
+          // Remove active class from all tabs and panes
+          tabLinks.forEach((l) => {
+            l.classList.remove("active", "bg-blue-500", "text-white");
+            l.classList.add("text-slate-600", "hover:text-blue-600");
+          });
+          tabPanes.forEach((p) => {
+            p.classList.remove("show", "active");
+          });
+
+          // Add active class to clicked tab
+          link.classList.add("active", "bg-blue-500", "text-white");
+          link.classList.remove("text-slate-600");
+
+          // Show corresponding pane
+          const targetPane = document.querySelector(link.getAttribute("href"));
+          targetPane.classList.add("show", "active");
+        });
+      });
+    </script>
+  </body>
+</html>
