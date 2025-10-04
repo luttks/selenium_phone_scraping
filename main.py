@@ -3,7 +3,7 @@ import json
 import uuid
 import os
 from datetime import datetime
-from fastapi import FastAPI, HTTPException, Request
+from fastapi import FastAPI, HTTPException, Request, BackgroundTasks
 from fastapi.responses import HTMLResponse
 from fastapi.templating import Jinja2Templates
 from pydantic import BaseModel
@@ -15,6 +15,9 @@ from selenium_.model.filter_list import FilterList
 from selenium.webdriver.chrome.service import Service
 from selenium.webdriver import Chrome, ChromeOptions
 from webdriver_manager.chrome import ChromeDriverManager
+from cache.redis_client import redis_cache
+from email_service.email_sender import email_service
+from auth.google_oauth import get_google_oauth_config
 import uvicorn
 import redis
 from dotenv import load_dotenv
@@ -45,6 +48,20 @@ except Exception as e:
     redis_client = None
 
 
+@app.get("/auth/google/config")
+async def get_google_config():
+    """
+    Get Google OAuth configuration for frontend
+    """
+    try:
+        config = get_google_oauth_config()
+        if not config["client_id"]:
+            return {"success": False, "error": "Google OAuth not configured"}
+        return {"success": True, "config": config}
+    except Exception as e:
+        logger.error(f"Error getting Google config: {e}")
+        return {"success": False, "error": str(e)}
+
 # ==== Models ====
 class PhoneConfigInput(BaseModel):
     brand: Optional[List[str]] = None
@@ -53,6 +70,7 @@ class PhoneConfigInput(BaseModel):
     storage: Optional[List[str]] = None  # [value, operator]
     resolutions: Optional[List[str]] = None
     refresh_rates: Optional[List[str]] = None
+    email: Optional[str] = None  # Email để gửi kết quả
 
 
 class ProductOut(BaseModel):
@@ -101,8 +119,19 @@ def parse_ram_or_storage(value_list: Optional[List[str]]) -> Optional[tuple]:
     return (value, operator)
 
 
+async def send_result_email(email: str, result_id: str, total_phones: int):
+    """Background task to send email with search results"""
+    try:
+        success = email_service.send_search_result_email(email, result_id, total_phones, "TGDD & FPT")
+        if success:
+            logger.info(f"Email sent successfully to {email} for result {result_id}")
+        else:
+            logger.error(f"Failed to send email to {email} for result {result_id}")
+    except Exception as e:
+        logger.error(f"Error sending email: {e}")
+
 @app.post("/scrape", response_model=ScrapeResponse)
-async def scrape_phones(config: PhoneConfigInput):
+async def scrape_phones(config: PhoneConfigInput, background_tasks: BackgroundTasks):
     logger.info(f"Received scrape request with config: {config}")
 
     # Chuẩn hóa cấu hình
@@ -216,27 +245,43 @@ async def scrape_phones(config: PhoneConfigInput):
             products=products_out
         )
         
-        # Save to Redis with 1 minute expiration
-        if redis_client:
+        # Save to Redis and send email if provided
+        result_id = None
+        if config.email:
             try:
-                result_id = str(uuid.uuid4())
-                redis_key = f"scrape_result:{result_id}"
-                redis_client.setex(
-                    redis_key, 
-                    60,  # 1 minute expiration
-                    json.dumps(response_data.dict())
-                )
-                logger.info(f"Result saved to Redis with ID: {result_id}")
-                
-                # Add result_id to response
-                response_dict = response_data.dict()
-                response_dict['result_id'] = result_id
-                return response_dict
-            except Exception as e:
-                logger.warning(f"Failed to save to Redis: {e}")
-        
-        return response_data
+                # Save to Redis using new cache service
+                result_id = redis_cache.save_search_result(config.email, {
+                    "phones": [p.dict() for p in products_out],
+                    "total": len(products_out),
+                    "source": "TGDD & FPT",
+                    "configuration": {
+                        "brand": config.brand,
+                        "price_range": config.price_range,
+                        "ram": config.ram,
+                        "storage": config.storage,
+                        "resolutions": config.resolutions,
+                        "refresh_rates": config.refresh_rates
+                    }
+                })
+                logger.info(f"Saved search result {result_id} for email {config.email}")
 
+                # Send email in background
+                background_tasks.add_task(
+                    send_result_email,
+                    config.email,
+                    result_id,
+                    len(products_out)
+                )
+            except Exception as e:
+                logger.error(f"Failed to save result to Redis: {e}")
+                # Continue without Redis/email if it fails
+
+        # Return response
+        response_dict = response_data.dict()
+        if result_id:
+            response_dict['result_id'] = result_id
+        return response_dict
+        
     except Exception as e:
         logger.error(f"Unexpected error during scraping: {str(e)}", exc_info=True)
         raise HTTPException(status_code=500, detail=str(e))
@@ -251,68 +296,19 @@ async def scrape_phones(config: PhoneConfigInput):
                     logger.warning(f"Error closing {name} WebDriver: {e}")
 
 
-@app.get("/home/{result_id}", response_class=HTMLResponse)
-async def get_result_page(request: Request, result_id: str):
-    """Get scrape result by ID and display in HTML format"""
-    
-    if not redis_client:
-        raise HTTPException(status_code=503, detail="Redis service unavailable")
-    
-    try:
-        # Get data from Redis
-        redis_key = f"scrape_result:{result_id}"
-        cached_data = redis_client.get(redis_key)
-        
-        if not cached_data:
-            raise HTTPException(status_code=404, detail="Result not found or expired")
-        
-        # Parse cached data
-        result_data = json.loads(cached_data)
-        
-        # Separate products by source
-        tgdd_products = [p for p in result_data['products'] 
-                        if p.get('product_link') and 'thegioididong.com' in p['product_link']]
-        fpt_products = [p for p in result_data['products'] 
-                       if p.get('product_link') and 'fptshop.com' in p['product_link']]
-        
-        # Render template with data
-        return templates.TemplateResponse(
-            "result.html", 
-            {
-                "request": request,
-                "total_products": result_data['total_products'],
-                "tgdd_products": tgdd_products,
-                "fpt_products": fpt_products,
-                "all_products": result_data['products'],
-                "result_id": result_id,
-                "timestamp": datetime.now().strftime("%d/%m/%Y %H:%M:%S")
-            }
-        )
-        
-    except json.JSONDecodeError:
-        raise HTTPException(status_code=500, detail="Invalid cached data format")
-    except Exception as e:
-        logger.error(f"Error retrieving result: {str(e)}")
-        raise HTTPException(status_code=500, detail="Internal server error")
 
 
-@app.get("/api/{result_id}")
+@app.get("/api/results/{result_id}")
 async def get_result_api(result_id: str):
     """Return cached scrape result by ID in JSON format"""
-    if not redis_client:
-        raise HTTPException(status_code=503, detail="Redis service unavailable")
-
     try:
-        redis_key = f"scrape_result:{result_id}"
-        cached_data = redis_client.get(redis_key)
+        if not redis_cache or not hasattr(redis_cache, 'redis') or redis_cache.redis is None:
+            raise HTTPException(status_code=503, detail="Redis service unavailable")
 
-        if not cached_data:
+        result_data = redis_cache.get_search_result(result_id)
+        if not result_data:
             raise HTTPException(status_code=404, detail="Result not found or expired")
-
-        result_data = json.loads(cached_data)
         return result_data
-    except json.JSONDecodeError:
-        raise HTTPException(status_code=500, detail="Invalid cached data format")
     except HTTPException:
         raise
     except Exception as e:
@@ -325,6 +321,15 @@ async def get_index_with_id(request: Request, result_id: str):
     """Serve the main index UI even when path contains a result_id."""
     logger.info("Rendering index page with result_id path")
     filter_list = FilterList()
+
+    # Try to load result data if result_id is valid
+    result_data = None
+    try:
+        if redis_cache:
+            result_data = redis_cache.get_search_result(result_id)
+    except Exception as e:
+        logger.warning(f"Could not load result data for {result_id}: {e}")
+
     return templates.TemplateResponse(
         "index.html",
         {
@@ -335,6 +340,7 @@ async def get_index_with_id(request: Request, result_id: str):
             "storage_options": filter_list.get_storage_options(),
             "resolution_options": filter_list.get_resolution_options(),
             "refresh_rate_options": filter_list.get_refresh_rate_options(),
+            "result_data": result_data,  # Pass result data to template if available
         }
     )
 

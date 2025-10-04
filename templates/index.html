@@ -469,8 +469,271 @@
         });
       });
 
+      // Google OAuth initialization
+      let googleUser = null;
+      let googleClientId = null;
+
+      async function initGoogleOAuth() {
+        try {
+          // Fetch Google OAuth config from backend
+          const response = await fetch("/auth/google/config");
+          const config = await response.json();
+
+          if (!config.success || !config.config.client_id) {
+            console.error("Google OAuth not configured");
+            return;
+          }
+
+          googleClientId = config.config.client_id;
+
+          // Check if user is already signed in from localStorage
+          const savedEmail = localStorage.getItem("userEmail");
+          if (savedEmail) {
+            return; // Already logged in
+          }
+        } catch (error) {
+          console.error("Error initializing Google OAuth:", error);
+        }
+      }
+
+      function handleCredentialResponse(response) {
+        try {
+          // Decode the JWT token to get user info
+          const responsePayload = decodeJwtResponse(response.credential);
+          const userEmail = responsePayload.email;
+
+          // Save email to localStorage
+          localStorage.setItem("userEmail", userEmail);
+          googleUser = responsePayload;
+
+          updateUserStatus(userEmail);
+        } catch (error) {
+          console.error("Error handling Google credential:", error);
+        }
+      }
+
+      function decodeJwtResponse(token) {
+        const base64Url = token.split(".")[1];
+        const base64 = base64Url.replace(/-/g, "+").replace(/_/g, "/");
+        const jsonPayload = decodeURIComponent(
+          atob(base64)
+            .split("")
+            .map(function (c) {
+              return "%" + ("00" + c.charCodeAt(0).toString(16)).slice(-2);
+            })
+            .join("")
+        );
+        return JSON.parse(jsonPayload);
+      }
+
+      function signOut() {
+        googleUser = null;
+        localStorage.removeItem("userEmail");
+
+        // Reinitialize Google Sign-In
+        initGoogleOAuth();
+      }
+
+      // Load Google Identity Services script
+      function loadGoogleIdentityServices() {
+        return new Promise((resolve) => {
+          if (window.google && window.google.accounts) {
+            resolve();
+            return;
+          }
+
+          const script = document.createElement("script");
+          script.src = "https://accounts.google.com/gsi/client";
+          script.async = true;
+          script.defer = true;
+          script.onload = () => {
+            resolve();
+          };
+          script.onerror = () => {
+            console.error("Failed to load Google Identity Services");
+            resolve(); // Continue anyway
+          };
+          document.head.appendChild(script);
+        });
+      }
+
+      // Show Google Auth Dialog
+      function showGoogleAuthDialog() {
+        return new Promise(async (resolve) => {
+          // Load Google Identity Services if not already loaded
+          if (!window.google || !window.google.accounts) {
+            await loadGoogleIdentityServices();
+          }
+
+          // Fetch Google config if not already fetched
+          let clientId = googleClientId;
+          if (!clientId) {
+            try {
+              const response = await fetch("/auth/google/config");
+              const config = await response.json();
+              if (config.success && config.config.client_id) {
+                clientId = config.config.client_id;
+                googleClientId = clientId; // Save for future use
+              } else {
+                console.error("Failed to fetch Google config");
+                alert(
+                  "Không thể tải cấu hình Google OAuth. Vui lòng thử lại sau."
+                );
+                resolve(false);
+                return;
+              }
+            } catch (error) {
+              console.error("Error fetching Google config:", error);
+              alert("Lỗi kết nối khi tải Google OAuth. Vui lòng thử lại sau.");
+              resolve(false);
+              return;
+            }
+          }
+          const dialog = document.createElement("div");
+          dialog.id = "googleAuthDialog";
+          dialog.innerHTML = `
+            <div class="dialog-overlay">
+              <div class="dialog-content">
+                <h3>Đăng nhập để nhận kết quả</h3>
+                <p>Việc tìm kiếm có thể mất vài phút. Đăng nhập với Google để nhận link kết quả qua email:</p>
+                <div id="googleAuthContainer" class="google-auth-container">
+                  <button id="dialogGoogleBtn" class="google-signin-btn">
+                    <svg class="google-icon" viewBox="0 0 24 24">
+                      <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
+                      <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/>
+                      <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"/>
+                      <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/>
+                    </svg>
+                    <span>Đăng nhập với Google</span>
+                  </button>
+                </div>
+                <div class="dialog-buttons">
+                  <button id="skipAuthBtn" class="btn-secondary">Bỏ qua</button>
+                </div>
+              </div>
+            </div>
+          `;
+
+          // Add styles
+          const style = document.createElement("style");
+          style.textContent = `
+            .dialog-overlay {
+              position: fixed; top: 0; left: 0; right: 0; bottom: 0;
+              background: rgba(0, 0, 0, 0.6); display: flex; align-items: center;
+              justify-content: center; z-index: 10000;
+            }
+            .dialog-content {
+              background: white; padding: 30px; border-radius: 12px;
+              box-shadow: 0 10px 40px rgba(0,0,0,0.2); max-width: 400px;
+              width: 90%; text-align: center;
+            }
+            .dialog-content h3 {
+              margin: 0 0 15px 0; color: #333; font-size: 24px;
+            }
+            .dialog-content p {
+              color: #666; margin-bottom: 25px; line-height: 1.5;
+            }
+            .google-signin-btn {
+              display: inline-flex; align-items: center; gap: 12px;
+              background: white; border: 2px solid #dadce0; border-radius: 8px;
+              padding: 12px 24px; font-size: 16px; font-weight: 500;
+              color: #3c4043; cursor: pointer; transition: all 0.2s;
+              width: 100%; justify-content: center;
+            }
+            .google-signin-btn:hover {
+              background: #f8f9fa; border-color: #c4c7c5;
+              box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+            }
+            .google-icon {
+              width: 20px; height: 20px;
+            }
+            .dialog-buttons {
+              margin-top: 20px;
+            }
+            .btn-secondary {
+              padding: 10px 20px; border: none; border-radius: 6px;
+              font-weight: 500; cursor: pointer; background: #6c757d; color: white;
+            }
+            .btn-secondary:hover {
+              background: #5a6268;
+            }
+          `;
+          document.head.appendChild(style);
+
+          document.body.appendChild(dialog);
+
+          // Initialize Google Sign-In for the dialog button
+          try {
+            google.accounts.id.initialize({
+              client_id: clientId,
+              callback: (response) => {
+                handleCredentialResponse(response);
+                dialog.remove();
+                style.remove();
+                resolve(true);
+              },
+              auto_select: false,
+              cancel_on_tap_outside: false,
+            });
+
+            // Replace the button content with Google renderButton
+            const buttonContainer = document.getElementById(
+              "googleAuthContainer"
+            );
+            buttonContainer.innerHTML =
+              '<div id="googleButtonContainer"></div>';
+
+            google.accounts.id.renderButton(
+              document.getElementById("googleButtonContainer"),
+              {
+                theme: "outline",
+                size: "large",
+                width: "100%",
+                text: "signin_with",
+                shape: "rectangular",
+              }
+            );
+          } catch (error) {
+            console.error("Error initializing Google OAuth:", error);
+            const btn = document.getElementById("dialogGoogleBtn");
+            if (btn) {
+              btn.textContent = "Lỗi khởi tạo Google OAuth";
+              btn.disabled = true;
+            }
+          }
+
+          // Handle skip button
+          document
+            .getElementById("skipAuthBtn")
+            .addEventListener("click", () => {
+              dialog.remove();
+              style.remove();
+              resolve(false);
+            });
+        });
+      }
+
       form.addEventListener("submit", async (e) => {
         e.preventDefault();
+
+        // Check if user has email in localStorage
+        let email = localStorage.getItem("userEmail");
+
+        if (!email) {
+          try {
+            const loggedIn = await showGoogleAuthDialog();
+            if (loggedIn) {
+              email = localStorage.getItem("userEmail");
+            } else {
+              // User skipped login, continue without email
+              return;
+            }
+          } catch (error) {
+            console.error("Error in dialog:", error);
+            alert("Có lỗi khi đăng nhập. Vui lòng thử lại.");
+            return;
+          }
+        }
 
         // Show loading state
         resultsContainer.style.display = "block";
@@ -511,6 +774,7 @@
           storage: storage_value ? [storage_value, storage_operator] : null,
           resolutions,
           refresh_rates,
+          email: email || null,
         };
 
         try {
@@ -556,7 +820,7 @@
           document.getElementById("fptGrid").innerHTML = loadingSkeleton;
           document.getElementById("allGrid").innerHTML = loadingSkeleton;
 
-          const res = await fetch(`/api/${idMatch[1]}`);
+          const res = await fetch(`/api/results/${idMatch[1]}`);
           if (!res.ok)
             throw new Error("Không tìm thấy dữ liệu hoặc đã hết hạn");
           const data = await res.json();
@@ -569,17 +833,18 @@
       })();
 
       function renderProductsBySource(data) {
-        console.log("Data received:", data);
+        // API trả về key 'phones', không phải 'products'
+        const products = data.phones || data.products || [];
 
         // Phân loại sản phẩm theo nguồn dựa trên domain của product_link
-        const tgddProducts = data.products.filter(
+        const tgddProducts = products.filter(
           (p) => p.product_link && p.product_link.includes("thegioididong.com")
         );
-        const fptProducts = data.products.filter(
+        const fptProducts = products.filter(
           (p) => p.product_link && p.product_link.includes("fptshop.com")
         );
 
-        if (!data.products || data.products.length === 0) {
+        if (!products || products.length === 0) {
           resultsContainer.style.display = "none";
           emptyState?.classList.remove("hidden");
           return;
@@ -597,7 +862,7 @@
         ).textContent = `${fptProducts.length} sản phẩm`;
         document.getElementById(
           "all-count"
-        ).textContent = `${data.products.length} sản phẩm`;
+        ).textContent = `${products.length} sản phẩm`;
 
         // Render sản phẩm cho từng tab
         document.getElementById("tgddGrid").innerHTML = renderProductGrid(
@@ -609,7 +874,7 @@
           "FPT"
         );
         document.getElementById("allGrid").innerHTML = renderProductGrid(
-          data.products,
+          products,
           "All"
         );
       }
