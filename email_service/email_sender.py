@@ -7,6 +7,10 @@ from email.mime.multipart import MIMEMultipart
 import os
 import logging
 from typing import Optional
+from dotenv import load_dotenv
+
+# Load environment variables
+load_dotenv()
 
 logger = logging.getLogger(__name__)
 

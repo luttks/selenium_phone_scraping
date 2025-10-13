@@ -328,6 +328,19 @@
                     <li class="nav-item">
                       <a
                         class="nav-link px-4 py-2 rounded-full text-sm font-medium transition-colors duration-200 text-slate-600 hover:text-blue-600"
+                        id="pills-compare-tab"
+                        data-toggle="pill"
+                        href="#pills-compare"
+                        role="tab"
+                        aria-controls="pills-compare"
+                        aria-selected="false"
+                      >
+                        So sánh & Gợi ý
+                      </a>
+                    </li>
+                    <li class="nav-item">
+                      <a
+                        class="nav-link px-4 py-2 rounded-full text-sm font-medium transition-colors duration-200 text-slate-600 hover:text-blue-600"
                         id="pills-all-tab"
                         data-toggle="pill"
                         href="#pills-all"
@@ -410,6 +423,28 @@
                   >
                     <!-- All products will be rendered here -->
                   </div>
+                </div>
+
+                <!-- Compare & Recommend Tab -->
+                <div
+                  class="tab-pane fade"
+                  id="pills-compare"
+                  role="tabpanel"
+                  aria-labelledby="pills-compare-tab"
+                >
+                  <div class="mb-6">
+                    <h3 class="text-lg font-semibold text-slate-900">
+                      So sánh giá giữa TGDD và FPT Shop
+                    </h3>
+                    <p class="text-sm text-slate-500" id="compare-count">
+                      Đang tải...
+                    </p>
+                  </div>
+                  <div id="compareSummary" class="space-y-4 mb-6"></div>
+                  <div
+                    id="compareList"
+                    class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4"
+                  ></div>
                 </div>
               </div>
             </div>
@@ -877,6 +912,9 @@
           products,
           "All"
         );
+
+        // Render so sánh và gợi ý
+        renderCompareAndRecommend(tgddProducts, fptProducts);
       }
 
       function generateLoadingSkeleton() {
@@ -963,6 +1001,166 @@
             `
           )
           .join("");
+      }
+
+      function parsePriceToNumber(priceStr) {
+        if (!priceStr || typeof priceStr !== "string") return NaN;
+        const digits = priceStr.replace(/[^0-9]/g, "");
+        return digits ? parseInt(digits, 10) : NaN;
+      }
+
+      function normalizeModelName(name) {
+        if (!name) return "";
+        let s = name.toLowerCase();
+        // Remove marketing prefixes
+        s = s.replace(/(điện thoại|smartphone)\s+/g, "");
+        // Remove storage/RAM tokens (e.g., 8GB/128GB, 256 GB)
+        s = s.replace(/\b(\d+\s?gb|\d+\s?tb)\b/g, "");
+        s = s.replace(/\b(\d+gb\/\d+gb|\d+gb\/\d+tb|\d+tb\/\d+gb)\b/g, "");
+        // Remove parentheses content which often contains storage or edition
+        s = s.replace(/\([^\)]*\)/g, "");
+        // Common separators and extra spaces
+        s = s.replace(/[\-_/]+/g, " ");
+        s = s.replace(/\s+/g, " ").trim();
+        return s;
+      }
+
+      function indexByModel(products) {
+        // Keep the lowest price item per normalized model per source
+        const index = new Map();
+        for (const p of products) {
+          const key = normalizeModelName(p.name);
+          const price = parsePriceToNumber(p.price);
+          if (!key) continue;
+          if (!index.has(key)) {
+            index.set(key, { ...p, _priceNum: price });
+          } else {
+            const existing = index.get(key);
+            if (
+              !isNaN(price) &&
+              (isNaN(existing._priceNum) || price < existing._priceNum)
+            ) {
+              index.set(key, { ...p, _priceNum: price });
+            }
+          }
+        }
+        return index;
+      }
+
+      function renderCompareAndRecommend(tgddProducts, fptProducts) {
+        const tgddIndex = indexByModel(tgddProducts);
+        const fptIndex = indexByModel(fptProducts);
+
+        const comparisons = [];
+        for (const [model, tgddItem] of tgddIndex.entries()) {
+          if (!fptIndex.has(model)) continue;
+          const fptItem = fptIndex.get(model);
+          const tgddPrice = parsePriceToNumber(tgddItem.price);
+          const fptPrice = parsePriceToNumber(fptItem.price);
+          const cheaper =
+            !isNaN(tgddPrice) && (isNaN(fptPrice) || tgddPrice <= fptPrice)
+              ? "TGDD"
+              : "FPT";
+          const priceDiff = Math.abs(
+            (isNaN(tgddPrice) ? 0 : tgddPrice) -
+              (isNaN(fptPrice) ? 0 : fptPrice)
+          );
+          comparisons.push({
+            model,
+            tgdd: tgddItem,
+            fpt: fptItem,
+            tgddPrice,
+            fptPrice,
+            cheaper,
+            priceDiff,
+          });
+        }
+
+        // Sort by absolute price difference descending to highlight best savings
+        comparisons.sort((a, b) => (b.priceDiff || 0) - (a.priceDiff || 0));
+
+        const compareCount = document.getElementById("compare-count");
+        compareCount.textContent = `${comparisons.length} mẫu tìm thấy trên cả hai bên`;
+
+        // Build summary: how many cheaper on each site and top 5 recommended buys
+        const cheaperTGDD = comparisons.filter((c) => c.cheaper === "TGDD");
+        const cheaperFPT = comparisons.filter((c) => c.cheaper === "FPT");
+
+        const summaryHtml = `
+          <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div class="p-4 rounded-xl border bg-white">
+              <div class="text-sm text-slate-500">Rẻ hơn tại TGDD</div>
+              <div class="text-2xl font-bold text-green-600">${cheaperTGDD.length}</div>
+            </div>
+            <div class="p-4 rounded-xl border bg-white">
+              <div class="text-sm text-slate-500">Rẻ hơn tại FPT</div>
+              <div class="text-2xl font-bold text-blue-600">${cheaperFPT.length}</div>
+            </div>
+            <div class="p-4 rounded-xl border bg-white">
+              <div class="text-sm text-slate-500">Số mẫu trùng nhau</div>
+              <div class="text-2xl font-bold text-slate-900">${comparisons.length}</div>
+            </div>
+          </div>
+        `;
+        document.getElementById("compareSummary").innerHTML = summaryHtml;
+
+        const listHtml = comparisons
+          .map((c) => {
+            const badgeClass =
+              c.cheaper === "TGDD"
+                ? "bg-green-100 text-green-800"
+                : "bg-blue-100 text-blue-800";
+            const cheaperText = c.cheaper === "TGDD" ? "TGDD" : "FPT";
+            const priceDiffText = c.priceDiff
+              ? new Intl.NumberFormat("vi-VN").format(c.priceDiff) + "₫"
+              : "N/A";
+            return `
+              <div class="rounded-xl border bg-white overflow-hidden">
+                <div class="p-4 border-b flex items-center justify-between gap-3">
+                  <h4 class="font-semibold text-slate-900 text-sm">${
+                    c.model
+                  }</h4>
+                  <span class="px-2 py-1 text-xs font-medium rounded-full ${badgeClass}">Rẻ hơn: ${cheaperText}</span>
+                </div>
+                <div class="grid grid-cols-1 sm:grid-cols-2">
+                  <a href="${
+                    c.tgdd.product_link
+                  }" target="_blank" class="flex items-center gap-3 p-4 hover:bg-slate-50">
+                    <img src="${c.tgdd.image_link}" alt="${
+              c.tgdd.name
+            }" class="w-16 h-16 object-contain bg-white rounded border" />
+                    <div class="min-w-0">
+                      <div class="text-xs text-slate-500">TGDD</div>
+                      <div class="truncate text-sm">${c.tgdd.name}</div>
+                      <div class="font-semibold text-red-600">${
+                        c.tgdd.price || "Đang cập nhật"
+                      }</div>
+                    </div>
+                  </a>
+                  <a href="${
+                    c.fpt.product_link
+                  }" target="_blank" class="flex items-center gap-3 p-4 hover:bg-slate-50 border-t sm:border-t-0 sm:border-l">
+                    <img src="${c.fpt.image_link}" alt="${
+              c.fpt.name
+            }" class="w-16 h-16 object-contain bg-white rounded border" />
+                    <div class="min-w-0">
+                      <div class="text-xs text-slate-500">FPT</div>
+                      <div class="truncate text-sm">${c.fpt.name}</div>
+                      <div class="font-semibold text-red-600">${
+                        c.fpt.price || "Đang cập nhật"
+                      }</div>
+                    </div>
+                  </a>
+                </div>
+                <div class="px-4 py-2 text-xs text-slate-600 border-t">Chênh lệch giá: <span class="font-semibold">${priceDiffText}</span></div>
+              </div>
+            `;
+          })
+          .join("");
+
+        document.getElementById("compareList").innerHTML =
+          listHtml ||
+          `<p class="text-gray-500">Không có mẫu trùng để so sánh.</p>`;
       }
     </script>
   </body>
